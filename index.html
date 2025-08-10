@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HowisFood — Food Spoilage Detector</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
   <style>
     body {
       font-family: Arial, Helvetica, sans-serif;
@@ -13,18 +13,20 @@
       margin: 40px auto;
       padding: 0 20px;
       color: #222;
+      text-align: center;
     }
     h1 {
       color: #1a73e8;
       margin-bottom: 6px;
     }
-    p.small {
+    p {
       color: #666;
       margin-top: 0;
     }
     #results {
       margin-top: 18px;
-      font-size: 1.05rem;
+      font-size: 1.1rem;
+      min-height: 50px;
     }
     #imagePreview {
       max-width: 320px;
@@ -35,64 +37,66 @@
     }
     input[type="file"] {
       margin-top: 14px;
+      font-size: 1rem;
     }
   </style>
 </head>
 <body>
+
   <h1>HowisFood — Food Spoilage Detector</h1>
-  <p class="small">Upload a photo of bread, apple or banana — the model will predict Fresh vs Moldy.</p>
+  <p>Upload a photo of bread, apple or banana — the model will predict Fresh vs Moldy.</p>
 
   <input type="file" id="imageUpload" accept="image/*" />
   <br />
-  <img id="imagePreview" alt="" />
-  <div id="results">Model loading… please wait.</div>
+  <img id="imagePreview" alt="Uploaded Image Preview" />
+  <div id="results">Loading model… please wait.</div>
 
   <script>
-    // URL points to your uploaded model files folder on GitHub
+    // URL path to your model folder (adjust if your folder name differs)
     const URL = "./my_model/";
 
     let model, maxPredictions;
 
     async function init() {
-      const modelURL = URL + "model.json";
-      const metadataURL = URL + "metadata.json";
-
       try {
-        model = await tmImage.load(modelURL, metadataURL);
+        model = await tmImage.load(URL + "model.json", URL + "metadata.json");
         maxPredictions = model.getTotalClasses();
-        document.getElementById("results").innerHTML = "Model loaded. Choose an image to test.";
-      } catch (err) {
-        document.getElementById("results").innerHTML = "Error loading model — check console.";
-        console.error("Model load error:", err);
+        document.getElementById('results').innerText = "Model loaded. Please upload an image.";
+      } catch (error) {
+        document.getElementById('results').innerText = "Error loading model — check console.";
+        console.error("Model load error:", error);
       }
     }
 
     async function predictImage(file) {
       if (!file) return;
-      const imgEl = document.getElementById("imagePreview");
-      imgEl.src = URL.createObjectURL(file);
-      imgEl.style.display = "block";
-      await imgEl.decode().catch(() => {});
+
+      const img = document.getElementById('imagePreview');
+      img.src = URL.createObjectURL(file);
+      img.style.display = "block";
+
+      await img.decode();
+
       try {
-        const prediction = await model.predict(imgEl);
-        prediction.sort((a, b) => b.probability - a.probability);
-        let out = "";
-        prediction.forEach((p) => {
-          out += `<strong>${p.className}</strong>: ${(p.probability * 100).toFixed(2)}%<br>`;
+        const predictions = await model.predict(img);
+        predictions.sort((a, b) => b.probability - a.probability);
+        let output = '';
+        predictions.forEach(p => {
+          output += `<strong>${p.className}</strong>: ${(p.probability * 100).toFixed(2)}%<br>`;
         });
-        document.getElementById("results").innerHTML = out;
-      } catch (err) {
-        document.getElementById("results").innerHTML = "Prediction error — check console.";
-        console.error("Prediction error:", err);
+        document.getElementById('results').innerHTML = output;
+      } catch (error) {
+        document.getElementById('results').innerText = "Prediction error — see console.";
+        console.error("Prediction error:", error);
       }
     }
 
-    document.getElementById("imageUpload").addEventListener("change", (e) => {
-      const f = e.target.files[0];
-      predictImage(f);
+    document.getElementById('imageUpload').addEventListener('change', (event) => {
+      predictImage(event.target.files[0]);
     });
 
-    init();
+    window.onload = init;
   </script>
+
 </body>
 </html>
