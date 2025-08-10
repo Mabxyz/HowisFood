@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HowisFood — Food Spoilage Detector</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;max-width:780px;margin:40px auto;padding:0 20px;color:#222}
+    h1{color:#1a73e8;margin-bottom:6px}
+    p.small{color:#666;margin-top:0}
+    #results{margin-top:18px;font-size:1.05rem}
+    #imagePreview{max-width:320px; margin-top:12px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.12); display:none}
+    input[type=file]{margin-top:14px}
+  </style>
+</head>
+<body>
+  <h1>HowisFood — Food Spoilage Detector</h1>
+  <p class="small">Upload a photo of bread, apple or banana — the model will predict Fresh vs Moldy.</p>
+
+  <input type="file" id="imageUpload" accept="image/*">
+  <br>
+  <img id="imagePreview" alt="">
+  <div id="results">Model loading… please wait.</div>
+
+<script>
+  // ---- REPLACE this string only if you have a different model link ----
+  const URL = "https://teachablemachine.withgoogle.com/models/hapPPi_4H/";
+
+  let model, maxPredictions;
+
+  async function init(){
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
+    try {
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+      document.getElementById('results').innerHTML = "Model loaded. Choose an image to test.";
+    } catch(err){
+      document.getElementById('results').innerHTML = "Error loading model — open browser console for details.";
+      console.error("Model load error:", err);
+    }
+  }
+
+  async function predictImage(file){
+    if(!file) return;
+    const imgEl = document.getElementById('imagePreview');
+    imgEl.src = URL.createObjectURL(file);
+    imgEl.style.display = 'block';
+    // wait until image is decoded (ensures proper size)
+    await imgEl.decode().catch(()=>{});
+    try {
+      const prediction = await model.predict(imgEl);
+      // sort predictions by probability descending
+      prediction.sort((a,b)=>b.probability - a.probability);
+      let out = '';
+      prediction.forEach(p=>{
+        out += `<strong>${p.className}</strong>: ${(p.probability*100).toFixed(2)}%<br>`;
+      });
+      document.getElementById('results').innerHTML = out;
+    } catch(err){
+      document.getElementById('results').innerHTML = "Prediction error — check console.";
+      console.error("Prediction error:", err);
+    }
+  }
+
+  // file input handler
+  document.getElementById('imageUpload').addEventListener('change', (e)=>{
+    const f = e.target.files[0];
+    predictImage(f);
+  });
+
+  // start
+  init();
+</script>
+</body>
+</html>
