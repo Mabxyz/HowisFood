@@ -1,80 +1,178 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HowisFood — Food Spoilage Detector</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
   <style>
     body {
-      font-family: Arial, Helvetica, sans-serif;
-      max-width: 780px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 600px;
       margin: 40px auto;
-      padding: 0 20px;
-      color: #222;
+      background: #f5f7fa;
+      color: #333;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
     }
-    h1 { color: #1a73e8; margin-bottom: 6px; }
-    p.small { color: #666; margin-top: 0; }
-    #results { margin-top: 18px; font-size: 1.05rem; }
-    #imagePreview { max-width: 320px; margin-top: 12px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.12); display: none; }
-    input[type=file] { margin-top: 14px; }
+    h1 {
+      text-align: center;
+      color: #0077cc;
+      margin-bottom: 5px;
+    }
+    p.description {
+      text-align: center;
+      color: #555;
+      font-size: 1rem;
+      margin-top: 0;
+    }
+    .upload-section {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-top: 20px;
+      text-align: center;
+    }
+    #imagePreview {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 15px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      display: none;
+    }
+    #results {
+      margin-top: 20px;
+      background: #eef6fc;
+      padding: 15px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 1.1rem;
+      text-align: center;
+      min-height: 60px;
+    }
+    .progress-bar {
+      height: 25px;
+      border-radius: 12px;
+      background: #ddd;
+      margin: 8px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .progress-bar > div {
+      height: 100%;
+      border-radius: 12px;
+      line-height: 25px;
+      color: white;
+      text-align: center;
+      font-weight: 600;
+      transition: width 0.5s ease;
+    }
+    .fresh {
+      background-color: #4caf50;
+    }
+    .moldy {
+      background-color: #f44336;
+    }
+    #loadingSpinner {
+      display: none;
+      margin: 20px auto;
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #0077cc;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg);}
+      100% { transform: rotate(360deg);}
+    }
   </style>
 </head>
 <body>
-
   <h1>HowisFood — Food Spoilage Detector</h1>
-  <p class="small">Upload a photo of bread, apple or banana — the model will predict Fresh vs Moldy.</p>
+  <p class="description">Upload a photo of bread, apple, or banana — the model will predict Fresh vs Moldy.</p>
 
-  <input type="file" id="imageUpload" accept="image/*" />
-  <br />
-  <img id="imagePreview" alt="Uploaded image preview" />
-  <div id="results">Model loading… please wait.</div>
+  <div class="upload-section">
+    <input type="file" id="imageUpload" accept="image/*" />
+    <img id="imagePreview" alt="Preview" />
+    <div id="loadingSpinner"></div>
+    <div id="results">Model loading… please wait.</div>
+  </div>
 
-<script>
-  const URL = "https://teachablemachine.withgoogle.com/models/hapPPi_4H/";
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/hapPPi_4H/";
+    let model, maxPredictions;
 
-  let model, maxPredictions;
+    const resultsDiv = document.getElementById('results');
+    const imagePreview = document.getElementById('imagePreview');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const imageUpload = document.getElementById('imageUpload');
 
-  async function init() {
-    const modelURL = URL + "model.json";
-    const metadataURL = URL + "metadata.json";
-    try {
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
-      document.getElementById('results').innerHTML = "Model loaded. Choose an image to test.";
-    } catch(err) {
-      document.getElementById('results').innerHTML = "Error loading model — check console.";
-      console.error("Model load error:", err);
+    async function init() {
+      try {
+        loadingSpinner.style.display = 'block';
+        resultsDiv.textContent = 'Model loading… please wait.';
+        model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+        maxPredictions = model.getTotalClasses();
+        resultsDiv.textContent = "Model loaded. Choose an image to test.";
+        loadingSpinner.style.display = 'none';
+        imageUpload.disabled = false;
+      } catch (error) {
+        resultsDiv.textContent = "Error loading model — check console.";
+        console.error(error);
+      }
     }
-  }
 
-  async function predictImage(file) {
-    if (!file) return;
-    const imgEl = document.getElementById('imagePreview');
-    imgEl.src = URL.createObjectURL(file);
-    imgEl.style.display = 'block';
-    await imgEl.decode();
+    async function predictImage(file) {
+      if (!file) return;
+      imagePreview.src = URL.createObjectURL(file);
+      imagePreview.style.display = 'block';
+      loadingSpinner.style.display = 'block';
+      resultsDiv.textContent = 'Predicting… please wait.';
 
-    try {
-      const prediction = await model.predict(imgEl);
-      prediction.sort((a,b) => b.probability - a.probability);
+      await imagePreview.decode();
 
-      let output = '';
-      prediction.forEach(p => {
-        output += `<strong>${p.className}</strong>: ${(p.probability * 100).toFixed(2)}%<br>`;
-      });
-      document.getElementById('results').innerHTML = output;
-    } catch(err) {
-      document.getElementById('results').innerHTML = "Prediction error — check console.";
-      console.error("Prediction error:", err);
+      try {
+        const predictions = await model.predict(imagePreview);
+        loadingSpinner.style.display = 'none';
+
+        // Sort by probability descending
+        predictions.sort((a, b) => b.probability - a.probability);
+
+        // Clear results
+        resultsDiv.innerHTML = '';
+
+        // Show each class with progress bar
+        predictions.forEach(p => {
+          const bar = document.createElement('div');
+          bar.className = 'progress-bar';
+
+          const innerBar = document.createElement('div');
+          innerBar.style.width = (p.probability * 100) + '%';
+          innerBar.textContent = `${p.className}: ${(p.probability * 100).toFixed(2)}%`;
+          innerBar.className = p.className.toLowerCase() === 'fresh' ? 'fresh' : 'moldy';
+
+          bar.appendChild(innerBar);
+          resultsDiv.appendChild(bar);
+        });
+      } catch (error) {
+        loadingSpinner.style.display = 'none';
+        resultsDiv.textContent = "Prediction error — check console.";
+        console.error(error);
+      }
     }
-  }
 
-  document.getElementById('imageUpload').addEventListener('change', (e) => {
-    predictImage(e.target.files[0]);
-  });
+    imageUpload.addEventListener('change', e => {
+      predictImage(e.target.files[0]);
+    });
 
-  init();
-</script>
-
+    // Disable file input initially until model loads
+    imageUpload.disabled = true;
+    init();
+  </script>
 </body>
 </html>
